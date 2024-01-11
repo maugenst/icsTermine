@@ -1,0 +1,7 @@
+.idea
+.svelte-kit
+node_modules
+config/local.yaml
+build
+KrankengymnastikTermine.ics
+keyfile.json

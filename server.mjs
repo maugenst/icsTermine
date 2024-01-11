@@ -1,41 +1,57 @@
 import express from 'express';
 import { promises as fs } from 'fs';
 import path from 'path';
+import process from 'node:process';
 import bodyParser from 'body-parser';
 import { handler } from './build/handler.js';
-import open from 'open';
+//import open from 'open';
 import nodemailer from 'nodemailer';
 import ics from 'ics';
 import dayjs from 'dayjs';
 import 'dayjs/locale/de.js';
-dayjs.locale('de');
-import getport from 'getport';
+import utc from 'dayjs/plugin/utc.js';
+dayjs.locale(   'de');
+dayjs.extend(utc);
+import config from 'config';
+import fse from 'fs-extra';
+const packageJson = fse.readJsonSync('package.json');
 
 const app = express();
 
 app.use(bodyParser.json());
 
+app.get('/healthcheck', (req, res) => {
+    res.send('ok');
+});
+
+app.get('/version', (req, res) => {
+    res.send(packageJson.version);
+});
+
 app.post('/api/createICAL', async (req, res) => {
     let filePath = '';
     let fileName = 'KrankengymnastikTermine.ics';
-    const termineUndEmail = req.body;
+    const body = req.body;
 
     const events = [];
-    termineUndEmail.termine.forEach(termin => {
-        const dStart = dayjs(termin.date);
-        const dEnd = dayjs(termin.date).add(30, 'm');
+    body.termine.forEach(termin => {
+        const dStart = dayjs(termin.date).utc().subtract(1, 'h');
+        const dEnd = dayjs(termin.date).utc().add(body.behandlungsdauer, 'm').subtract(1, 'h');
         const start = [dStart.year(), dStart.month()+1, dStart.date(), dStart.hour(), dStart.minute()];
         const end = [dEnd.year(), dEnd.month()+1, dEnd.date(), dEnd.hour(), dEnd.minute()];
         events.push({
             title: 'Termin Krankengymnastik',
             start,
             end,
+            startInputType: 'utc',
+            startOutputType: 'utc',
             location: 'PhysioCity Walldorf, Johann-Jakob-Astor-Straße 7, 69190 Walldorf',
-            htmlContent: `<!DOCTYPE html><html><body style="font-family: Arial"><p>Sehr geehrte(r) PatientIn.<br><br>Gerne begrüßen wir Sie am ${termin.date} in unserer Praxis zur Behandlung.<br><br>Mit freundlichen Grüßen,<br>Ihr PhysioCity-Team<br><img src="https://www.physiocity-walldorf.de/.cm4all/mediadb/Zeichenfl%C3%A4che%201.png" width="200" height="200"></p></body></html>`,
+            // replace all tabs and newlines with nothing
+            htmlContent: config.get('termine.content').replace(/[\n\t]/g, ''),
             url: 'http://www.physiocity-walldorf.de/',
             busyStatus: 'OOF',
             classification: 'PRIVATE',
-            organizer: { name: 'PhysioCity-Walldorf', email: 'info@physiocity-walldorf.de', sentBy: 'info@physiocity-walldorf.de' },
+            organizer: { name: 'PhysioCity-Walldorf', email: config.get('email.auth.username'), sentBy: config.get('email.auth.username') },
             categories: ['Krankengymnastik'],
             alarms: [{ action: 'display', description: 'Terminerinnerung', trigger: { hours: 1, before: true } }]
         })
@@ -57,45 +73,50 @@ app.post('/api/createICAL', async (req, res) => {
     }
 
     const transporter = nodemailer.createTransport({
-        host: "smtp.gmail.com",
-        port: 465,
+        host: config.get('email.server.hostname'),
+        port: config.get('email.server.port'),
         secure: true,
         auth: {
-            user: '<username>',
-            pass: '<password>'
+            user: config.get('email.auth.username'),
+            pass: config.get('email.auth.password')
         }
     });
 
 
     // send mail with defined transport object
-    const info = await transporter.sendMail({
-        from: '"PhysioCity-Walldorf" <info@physiocity-walldorf.de>', // sender address
-        to: termineUndEmail.email, // list of receivers
-        subject: `Krankengymnastik Termin${termineUndEmail.termine.length>1 ? 'e':''}`,
-        html: '<!DOCTYPE html><html><body style="font-family: Arial">' +
-            '<p>Sehr geehrte(r) PatientIn.<br><br>' +
-            'Wie gerade in der Praxis besprochen finden Sie im Anhang eine Termin Datei, in welcher Ihre Termine zum Import in Ihrem Handy oder am PC, gespeichert sind.<br><br>' +
-            'Mit freundlichen Grüßen,<br>' +
-            'Ihr PhysioCity-Team</p></body></html>',
+    await transporter.sendMail({
+        from: `"PhysioCity-Walldorf" <${config.get('email.auth.username')}>`,
+        to: body.email,
+        replyTo: config.get('email.server.replyTo'),
+        subject: `Krankengymnastik Termin${body.termine.length>1 ? 'e':''}`,
+        html: config.get('email.content'),
         attachments: [{
             filename: fileName,
             path: filePath
         }]
-
     });
 
-    console.log(`Termine gesendet an: ${termineUndEmail.email}`);
+    await transporter.sendMail({
+        from: `"PhysioCity-Walldorf" <${config.get('email.auth.username')}>`,
+        to: config.get('email.server.replyTo'),
+        replyTo: config.get('email.server.replyTo'),
+        subject: `Krankengymnastik Termin${body.termine.length>1 ? 'e':''} gesendet an ${body.email}`,
+        html: config.get('email.copyContent').replace(/%PATIENTENNAME%/g, body.email),
+        attachments: [{
+            filename: fileName,
+            path: filePath
+        }]
+    })
+
+    console.log(`Termine gesendet an: ${body.email} and ${config.get('email.server.replyTo')}`);
 });
 
 app.use(handler);
-
-getport( 50000, (_,port) => {
-    app.listen(port, async () => {
-        const url = `http://localhost:${port}`;
-        console.log(`KalenderApp is running on port ${port}...`);
-        console.log(`Starting browser window: ${url}`)
-        await open(url);
-    });
+const port = config.get('app.server.port');
+app.listen(port, async () => {
+    console.log(`KalenderApp is running on port ${port}...`);
+    //console.log(`Starting browser window: ${url}`)
+    //await open(url);
 });
 
 

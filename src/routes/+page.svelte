@@ -1,13 +1,43 @@
 <script>
+    import darklogo from '$lib/images/IcsTermineLogo.svg';
+    import lightlogo from '$lib/images/IcsTermineLogo_light.svg';
     import SveltyPicker from 'svelty-picker';
-    import { Input, Label, Button, A, CloseButton, Card } from 'flowbite-svelte';
-    import { EnvelopeSolid, TrashBinOutline, EnvelopeOutline } from 'flowbite-svelte-icons';
 
-    let date, dateLong;
+    import { page } from '$app/stores';
+    $: activeUrl = $page.url.pathname;
+    import {
+        Input,
+        Label,
+        A,
+        P,
+        Card,
+        Badge,
+        RadioButton,
+        ButtonGroup,
+        DarkMode,
+        Navbar, NavBrand, NavHamburger, NavUl
+    } from 'flowbite-svelte';
+    import {
+        EnvelopeSolid,
+        TrashBinOutline,
+        EnvelopeOutline
+    } from 'flowbite-svelte-icons';
+
+    let showSuccess, showError = false;
+    let date;
     let email;
+    let version;
+    let behandlungsdauer;
     let termine = [];
 
+    function getVersion() {
+        fetch('/version').then(r => r.text()).then(v => {
+            version = v;
+        });
+    }
+
     function addDate() {
+        console.log(behandlungsdauer)
         termine = [...termine, {
             date: date,
             dateLong: new Date(date).valueOf()
@@ -32,25 +62,63 @@
             },
             body: JSON.stringify({
                 termine,
-                email
+                email,
+                behandlungsdauer
             }),
         });
 
         if (!response.ok) {
-            alert('Beim Erstellen der Kalendereinträge ist ein Fehler aufgetreten.');
+            showError = true;
+        } else {
+            showSuccess = true;
         }
+        listeLoeschen();
     }
 
     function listeLoeschen() {
         termine = [];
+        behandlungsdauer = '';
         email = undefined;
+        setTimeout(() => {
+            showSuccess = false;
+            showError = false;
+        }, 3000);
     }
+
+    function updateStore() {
+        console.log('Darkmode:' + isDarkMode);
+    }
+
 </script>
 
-<div class="flex justify-center items-center h-screen">
+<div class="flex justify-end top-0">
+    <Navbar>
+        <NavBrand href="/">
+            <img src={darklogo} class="mr-3 h-6 sm:h-9 block dark:hidden" alt="Ics Termine" />
+            <img src={lightlogo} class="mr-3 h-6 sm:h-9 hidden dark:block" alt="Ics Termine" />
+            <span use:getVersion class="self-center whitespace-nowrap text-xl font-semibold dark:text-white">
+                Ics Termine (V {version})
+            </span>
+        </NavBrand>
+        <NavHamburger />
+        <NavUl {activeUrl}>
+            <DarkMode on:click={updateStore} />
+        </NavUl>
+    </Navbar>
+
+</div>
+<div class="flex justify-center h-screen">
     <Card padding="xl">
         <Label class="text-2xl" for="datePicker">Termin(e) erfassen:</Label>
         <SveltyPicker id="datePicker" class="text-sm" pickerOnly initialDate="{new Date()}" bind:value={date} on:dateChange={addDate} mode="datetime" todayBtn={false} clearBtn={false} format="dd.MM.yyyy hh:ii"/>
+        <br>
+        <Label class="text-2xl" for="datePicker">Behandlungsdauer:</Label>
+        <ButtonGroup>
+            <RadioButton value={"20"} bind:group={behandlungsdauer}>20</RadioButton>
+            <RadioButton value={"30"} bind:group={behandlungsdauer}>30</RadioButton>
+            <RadioButton value={"40"} bind:group={behandlungsdauer}>40</RadioButton>
+            <RadioButton value={"60"} bind:group={behandlungsdauer}>60</RadioButton>
+        </ButtonGroup>
         <br>
         <Label class="text-2xl">Patienten Email Adresse: </Label>
         <Input id="email" type="email" bind:value={email} placeholder="patient@email.de" size="lg" required>
@@ -71,7 +139,7 @@
             {/each}
         </div>
         <br>
-        {#if (termine.length > 0 && email !== undefined)}
+        {#if (termine.length > 0 && email !== undefined && behandlungsdauer !== '')}
         <div class="grid gap-2 grid-cols-2">
             <div>
                 <A on:click={createICAL}>Absenden&nbsp;
@@ -85,7 +153,18 @@
             </div>
         </div>
         {/if}
+        {#if (showSuccess)}
+            <br>
+            <Badge color="green">Email gesendet.</Badge>
+        {/if}
+        {#if (showError)}
+            <br>
+            <Badge color="red">Fehler beim Versand...</Badge>
+        {/if}
+
+
     </Card>
+
 </div>
 
 <style>

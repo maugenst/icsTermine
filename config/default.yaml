@@ -1,0 +1,65 @@
+app:
+  server:
+    port: 8080
+  tinymce:
+    apikey: "3njvcnoj1znt6h5u6sltuh939skv7u70fgy82pabkxabmec7"
+
+email:
+  server:
+    replyTo: emailadress@server.com
+    hostname: hostname
+    port: 1212
+  auth:
+    username: username
+    password: password
+  copyContent: |
+    <!DOCTYPE html>
+    <html>
+      <body style="font-family: Arial">
+        <p>
+          Sehr geehrtes PhysioCity Team.
+          <br><br>
+          Der Termin an PatientIn: %PATIENTENNAME% wurde soeben verschickt. <br>
+          Im Anhang finden Sie die generierten Kalendereinträge.<br>
+          <br><br>
+          Mit freundlichen Grüßen,<br> 
+          Ihr IcrKalender
+        </p>
+      </body>
+    </html>
+  content: |  
+    <!DOCTYPE html>
+    <html>
+      <body style="font-family: Arial">
+        <p>
+          Sehr geehrte(r) PatientIn.
+          <br><br>
+          Wie gerade in der Praxis besprochen finden Sie im Anhang eine Termin Datei, in welcher Ihre Termine zum Import in Ihrem Handy oder am PC, gespeichert sind.<br><br>
+          WICHTIG - BITTE BEACHTEN:<br>
+          Terminänderungen sind so früh als möglich, spätestens jedoch 24 Stunden vor der vereinbarten Behandlungszeit, vorzunehmen. Für nicht eingehaltene oder zu spät abgesagte Termine wird der kassenübliche Satz in Rechnung gestellt.<br><br>
+          Mit freundlichen Grüßen,<br>
+          Ihr PhysioCity-Team<br>
+          <div style="font-size: smaller">
+            Johann-Jakob-Astor-Strasse 7<br>
+            69190 Walldorf<br>
+            Mobil: +49 176 - 3716 4196<br>
+            Tel: 06227 - 8716805<br>
+            Mail: physiocitywalldorf@icloud.com
+          </div>
+        </p>
+      </body>
+    </html>
+
+termine:
+  content: |
+    <!DOCTYPE html>
+    <html>
+      <body style="font-family: Arial">
+        <p>
+          Sehr geehrte(r) PatientIn.
+          <br><br>Gerne begrüßen wir Sie heute in unserer Praxis zur Behandlung.<br><br>
+          Mit freundlichen Grüßen,<br>
+          Ihr PhysioCity-Team
+        </p>
+      </body>
+    </html>

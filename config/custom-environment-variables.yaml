@@ -1,0 +1,7 @@
+email:
+  server:
+    hostname: EMAIL_SERVER_HOSTNAME
+    port: EMAIL_SERVER_PORT
+  auth:
+    username: EMAIL_AUTH_USERNAME
+    password: EMAIL_AUTH_PASSWORD
